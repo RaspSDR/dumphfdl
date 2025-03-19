@@ -247,6 +247,7 @@ add_library (dumphfdl_base OBJECT
 	util.c
 	${CMAKE_CURRENT_BINARY_DIR}/version.c
 	${dumphfdl_extra_sources}
+	glib.cpp
 )
 
 target_include_directories (dumphfdl_base PUBLIC
