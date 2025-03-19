@@ -97,12 +97,23 @@ else()
 	message(FATAL_ERROR "Unknown FFT library: ${FFT_LIBRARY}")
 endif()
 
-pkg_check_modules(GLIB2 REQUIRED glib-2.0>=2.46)
-list(APPEND dumphfdl_extra_libs ${GLIB2_LIBRARIES})
-list(APPEND dumphfdl_include_dirs ${GLIB2_INCLUDE_DIRS})
-list(APPEND link_dirs ${GLIB2_LIBRARY_DIRS})
+pkg_check_modules(ACARS OPTIONAL libacars-2>=2.1.0)
+if(NOT ACARS_FOUND)
+	include(ExternalProject)
+	ExternalProject_Add(
+        libacars
+        GIT_REPOSITORY https://github.com/szpajder/libacars
+        GIT_TAG        v2.2.0
+        #PATCH_COMMAND  git apply ${CMAKE_SOURCE_DIR}/extensions/HFDL/patches/	.patch
+        CMAKE_ARGS
+            -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/libacars
+    )
 
-pkg_check_modules(ACARS REQUIRED libacars-2>=2.1.0)
+    set(ACARS_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/libacars/include/libacars-2/)
+    set(ACARS_LIBRARY_DIRS ${CMAKE_BINARY_DIR}/libacars/lib)
+	set(ACARS_LIBRARIES ${ACARS_LIBRARY_DIRS}/libacars-2.so)
+endif()
+
 list(APPEND dumphfdl_extra_libs ${ACARS_LIBRARIES})
 list(APPEND dumphfdl_include_dirs ${ACARS_INCLUDE_DIRS})
 list(APPEND link_dirs ${ACARS_LIBRARY_DIRS})
