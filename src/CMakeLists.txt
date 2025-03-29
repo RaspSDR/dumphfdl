@@ -52,31 +52,34 @@ if(DATADUMPS)
 	list(APPEND dumphfdl_extra_sources dumpfile.c)
 endif()
 
+include(ExternalProject)
 find_package(PkgConfig REQUIRED)
 
-find_package(LiquidDSP REQUIRED)
-set(CMAKE_REQUIRED_INCLUDES_SAVE ${CMAKE_REQUIRED_INCLUDES})
-set(CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES} ${LIQUIDDSP_INCLUDE_DIR})
-set(CMAKE_REQUIRED_LIBRARIES_SAVE ${CMAKE_REQUIRED_LIBRARIES})
-set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} ${LIQUIDDSP_LIBRARIES})
-set(LIQUID_VERSION_MIN "1.3.0")
-set(LIQUID_VERSION_NUMBER_MIN 1003000)
-check_c_source_runs("
-#include <stdio.h>
-#include <stdlib.h>
-#include <liquid/liquid.h>
-#if LIQUID_VERSION_NUMBER < ${LIQUID_VERSION_NUMBER_MIN}
-#error LiquidDSP library is too old
-#endif
-int main(void) { LIQUID_VALIDATE_LIBVERSION return 0; }" LIQUIDDSP_VERSION_CHECK)
-if(LIQUIDDSP_VERSION_CHECK)
-	list(APPEND dumphfdl_extra_libs ${LIQUIDDSP_LIBRARIES})
-	list(APPEND dumphfdl_include_dirs ${LIQUIDDSP_INCLUDE_DIR})
-else()
-	message(FATAL_ERROR "LiquidDSP library is too old or missing (min. version required: ${LIQUID_VERSION_MIN})")
+pkg_check_modules(ZLIB REQUIRED zlib)
+
+#find_package(LiquidDSP REQUIRED)
+#set(LiquidDSP_LIBRARIES liquid-dsp/lib/libliquid.a)
+pkg_check_modules(LiquidDSP OPTIONAL libliquid-not)
+if (NOT LIQUIDDSP_FOUND)
+	message(STATUS "LiquidDSP not found, Build libquiddsp")
+	ExternalProject_Add(
+        liquid-dsp
+        URL https://github.com/jgaeddert/liquid-dsp/archive/refs/tags/v1.5.0.tar.gz
+        PATCH_COMMAND  patch -p1 < ${CMAKE_SOURCE_DIR}/patches/liquid.patch
+        CONFIGURE_COMMAND cd <SOURCE_DIR> && ./bootstrap.sh && ./configure --prefix=${CMAKE_BINARY_DIR}/liquid-dsp
+        DOWNLOAD_EXTRACT_TIMESTAMP false
+        BUILD_COMMAND make -C <SOURCE_DIR>
+        INSTALL_COMMAND make install -C <SOURCE_DIR>
+    )
+
+    set(LiquidDSP_INCLUDE_DIR ${CMAKE_BINARY_DIR}/liquid-dsp/include)
+    set(LiquidDSP_LIB_DIR ${CMAKE_BINARY_DIR}/liquid-dsp/lib)
+	set(LiquidDSP_LIBRARIES ${LiquidDSP_LIB_DIR}/libliquid.so)
+	list(APPEND dumphfdl_dependencies liquid-dsp)
 endif()
-set(CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES_SAVE})
-set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES_SAVE})
+list(APPEND dumphfdl_extra_libs ${LiquidDSP_LIBRARIES})
+list(APPEND dumphfdl_include_dirs ${LiquidDSP_INCLUDE_DIR})
+list(APPEND link_dirs ${LiquidDSP_LIB_DIR})
 
 set(FFT_LIBRARY "fftw" CACHE STRING "Specify which library shall be used for FFT computation")
 if(FFT_LIBRARY STREQUAL "fftw")
@@ -99,19 +102,24 @@ endif()
 
 pkg_check_modules(ACARS OPTIONAL libacars-2>=2.1.0)
 if(NOT ACARS_FOUND)
-	include(ExternalProject)
-	ExternalProject_Add(
+    ExternalProject_Add(
         libacars
-        GIT_REPOSITORY https://github.com/szpajder/libacars
-        GIT_TAG        v2.2.0
-        #PATCH_COMMAND  git apply ${CMAKE_SOURCE_DIR}/extensions/HFDL/patches/	.patch
+        URL https://github.com/szpajder/libacars/archive/refs/tags/v2.2.0.tar.gz
+        PATCH_COMMAND  patch -p1 < ${CMAKE_SOURCE_DIR}/patches/libacars.patch
+        DOWNLOAD_EXTRACT_TIMESTAMP false
         CMAKE_ARGS
             -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/libacars
+			-DLIBXML2=OFF
+			-DJANSSON=OFF
+            -DBUILD_SHARED_LIBS=OFF  # Ensure static library is built
     )
 
+	pkg_check_modules(ZLIB REQUIRED zlib)
     set(ACARS_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/libacars/include/libacars-2/)
     set(ACARS_LIBRARY_DIRS ${CMAKE_BINARY_DIR}/libacars/lib)
-	set(ACARS_LIBRARIES ${ACARS_LIBRARY_DIRS}/libacars-2.so)
+	set(ACARS_LIBRARIES ${ACARS_LIBRARY_DIRS}/libacars-2.a ${ZLIB_LIBRARIES} )
+	list(APPEND dumphfdl_dependencies libacars)
+
 endif()
 
 list(APPEND dumphfdl_extra_libs ${ACARS_LIBRARIES})
@@ -119,21 +127,22 @@ list(APPEND dumphfdl_include_dirs ${ACARS_INCLUDE_DIRS})
 list(APPEND link_dirs ${ACARS_LIBRARY_DIRS})
 
 pkg_check_modules(CONFIG REQUIRED libconfig++)
-list(APPEND dumphfdl_extra_libs ${CONFIG_LIBRARIES})
+list(APPEND dumphfdl_extra_libs "/usr/lib/libconfig++.a")
+#list(APPEND dumphfdl_extra_libs ${CONFIG_LIBRARIES})
 list(APPEND dumphfdl_include_dirs ${CONFIG_INCLUDE_DIRS})
 list(APPEND link_dirs ${CONFIG_LIBRARY_DIRS})
 
-option(SOAPYSDR "Enable SoapySDR support" ON)
+option(SOAPYSDR "Enable SoapySDR support" OFF)
 set(WITH_SOAPYSDR FALSE)
 
-option(ETSY_STATSD "Enable Etsy StatsD support" ON)
+option(ETSY_STATSD "Enable Etsy StatsD support" OFF)
 set(WITH_STATSD FALSE)
 
 option(SQLITE "Enable SQLite support for reading aircraft info from
 Basestation DB" ON)
 set(WITH_SQLITE FALSE)
 
-option(ZMQ "Enable support for ZeroMQ outputs" ON)
+option(ZMQ "Enable support for ZeroMQ outputs" OFF)
 set(WITH_ZMQ FALSE)
 
 option(PROFILING "Enable profiling with gperftools")
@@ -260,6 +269,8 @@ add_library (dumphfdl_base OBJECT
 	${dumphfdl_extra_sources}
 	glib.cpp
 )
+
+add_dependencies(dumphfdl_base ${dumphfdl_dependencies})
 
 target_include_directories (dumphfdl_base PUBLIC
 	${dumphfdl_include_dirs}

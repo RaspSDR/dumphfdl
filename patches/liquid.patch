@@ -6,7 +6,7 @@ index 72518d1c..3a9f5edc 100644
              ARCH_OPTION="-ffast-math";;
          *)
              # TODO: check these flags
-+            ARCH_OPTION="-march=armv7-a -mtune=cortex-a9 -mfpu=neon -mfloat-abi=hard -ffast-math";;
++            ARCH_OPTION="-march=armv7-a -mtune=cortex-a9 -mfpu=neon -mfloat-abi=hard";;
              #ARCH_OPTION="-ffast-math -mcpu=cortex-a8 -mfloat-abi=softfp -mfpu=neon";;
 -            ARCH_OPTION="-ffast-math -mcpu=cortex-a7 -mfloat-abi=hard -mfpu=neon-vfpv4";;
 +            #ARCH_OPTION="-ffast-math -mcpu=cortex-a7 -mfloat-abi=hard -mfpu=neon-vfpv4";;
