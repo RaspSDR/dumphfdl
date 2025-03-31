@@ -65,7 +65,7 @@ if (NOT LIQUIDDSP_FOUND)
 	ExternalProject_Add(
         liquid-dsp
         URL https://github.com/jgaeddert/liquid-dsp/archive/refs/tags/v1.5.0.tar.gz
-        PATCH_COMMAND  patch -p1 < ${CMAKE_SOURCE_DIR}/patches/liquid.patch
+        PATCH_COMMAND  patch -p1 < ${CMAKE_CURRENT_LIST_DIR}/../patches/liquid.patch
         CONFIGURE_COMMAND cd <SOURCE_DIR> && ./bootstrap.sh && ./configure --prefix=${CMAKE_BINARY_DIR}/liquid-dsp
         DOWNLOAD_EXTRACT_TIMESTAMP false
         BUILD_COMMAND make -C <SOURCE_DIR>
@@ -106,7 +106,7 @@ if(NOT ACARS_FOUND)
     ExternalProject_Add(
         libacars
         URL https://github.com/szpajder/libacars/archive/refs/tags/v2.2.0.tar.gz
-        PATCH_COMMAND  patch -p1 < ${CMAKE_SOURCE_DIR}/patches/libacars.patch
+        PATCH_COMMAND  patch -p1 < ${CMAKE_CURRENT_LIST_DIR}/../patches/libacars.patch
         DOWNLOAD_EXTRACT_TIMESTAMP false
         CMAKE_ARGS
             -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/libacars
